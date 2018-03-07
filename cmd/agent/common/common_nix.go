@@ -16,6 +16,8 @@ const (
 	DefaultConfPath = "/etc/datadog-agent"
 	// DefaultLogFile points to the log file that will be used if not configured
 	DefaultLogFile = "/var/log/datadog/agent.log"
+	// DefaultCustomChecks points to the directory that will be used if not configured
+	DefaultCustomChecks = "/etc/datadog-agent/checks.d/"
 )
 
 var (

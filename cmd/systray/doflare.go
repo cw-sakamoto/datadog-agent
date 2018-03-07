@@ -186,6 +186,8 @@ func requestFlare(caseID, customerEmail string) (response string, e error) {
 		logFile = common.DefaultLogFile
 	}
 
+	customChecksPath := config.Datadog.GetString("additional_checksd")
+
 	// Set session token
 	e = util.SetAuthToken()
 	if e != nil {
@@ -202,7 +204,7 @@ func requestFlare(caseID, customerEmail string) (response string, e error) {
 		}
 		log.Debug("Initiating flare locally.")
 
-		filePath, e = flare.CreateArchive(true, common.GetDistPath(), common.PyChecksPath, logFile)
+		filePath, e = flare.CreateArchive(true, common.GetDistPath(), common.PyChecksPath, logFile, customChecksPath)
 		if e != nil {
 			log.Errorf("The flare zipfile failed to be created: %s\n", e)
 			return

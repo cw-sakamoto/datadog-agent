@@ -33,22 +33,24 @@ import (
 type SearchPaths map[string]string
 
 // CreateArchive packages up the files
-func CreateArchive(local bool, distPath, pyChecksPath, logFilePath string) (string, error) {
+func CreateArchive(local bool, distPath, pyChecksPath, logFilePath string, customChecksPath string) (string, error) {
 	zipFilePath := getArchivePath()
 	confSearchPaths := SearchPaths{
 		"":        config.Datadog.GetString("confd_path"),
 		"dist":    filepath.Join(distPath, "conf.d"),
 		"checksd": pyChecksPath,
 	}
-	return createArchive(zipFilePath, local, confSearchPaths, logFilePath)
+	return createArchive(zipFilePath, local, confSearchPaths, logFilePath, customChecksPath)
 }
 
-func createArchive(zipFilePath string, local bool, confSearchPaths SearchPaths, logFilePath string) (string, error) {
+func createArchive(zipFilePath string, local bool, confSearchPaths SearchPaths, logFilePath string, customChecksPath string) (string, error) {
 	b := make([]byte, 10)
 	_, err := rand.Read(b)
 	if err != nil {
 		return "", err
 	}
+
+	customChecksPath = "/etc/datadog-agent/checks.d"
 
 	dirName := hex.EncodeToString([]byte(b))
 	tempDir, err := ioutil.TempDir("", dirName)
@@ -97,6 +99,11 @@ func createArchive(zipFilePath string, local bool, confSearchPaths SearchPaths, 
 	}
 
 	err = zipExpVar(tempDir, hostname)
+	if err != nil {
+		return "", err
+	}
+
+	err = zipCustomChecks(tempDir, hostname, customChecksPath)
 	if err != nil {
 		return "", err
 	}
@@ -184,6 +191,26 @@ func zipLogFiles(tempDir, hostname, logFilePath string) error {
 	return err
 }
 
+func zipCustomChecks(tempDir, hostname, customChecksPath string) error {
+	customCheckDir := filepath.Dir(customChecksPath)
+	err := filepath.Walk(customCheckDir, func(src string, f os.FileInfo, err error) error {
+
+		if f == nil {
+			return nil
+		}
+		if f.IsDir() {
+			return nil
+		}
+
+		if filepath.Ext(f.Name()) == ".py" || getFirstSuffix(f.Name()) == ".py" {
+			dst := filepath.Join(tempDir, hostname, "customChecks", f.Name())
+			return util.CopyFileAll(src, dst)
+		}
+		return nil
+	})
+	return err
+}
+
 func zipExpVar(tempDir, hostname string) error {
 	var variables = make(map[string]interface{})
 	expvar.Do(func(kv expvar.KeyValue) {
@@ -234,7 +261,6 @@ func zipConfigFiles(tempDir, hostname string, confSearchPaths SearchPaths) error
 	}
 
 	f := filepath.Join(tempDir, hostname, "runtime_config_dump.yaml")
-
 	err = ensureParentDirsExist(f)
 	if err != nil {
 		return err

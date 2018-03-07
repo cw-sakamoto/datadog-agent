@@ -103,8 +103,13 @@ func makeFlare(w http.ResponseWriter, r *http.Request) {
 		logFile = common.DefaultLogFile
 	}
 
+	customCheckPath := config.Datadog.GetString("additional_checksd")
+	if customCheckPath == "" {
+		customCheckPath = common.DefaultCustomChecks
+	}
+
 	log.Infof("Making a flare")
-	filePath, err := flare.CreateArchive(false, common.GetDistPath(), common.PyChecksPath, logFile)
+	filePath, err := flare.CreateArchive(false, common.GetDistPath(), common.PyChecksPath, logFile, customCheckPath)
 	if err != nil || filePath == "" {
 		if err != nil {
 			log.Errorf("The flare failed to be created: %s", err)
